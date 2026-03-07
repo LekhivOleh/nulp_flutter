@@ -29,3 +29,4 @@ jobs:
       - name: Run Dart Analysis
         uses: invertase/github-action-dart-analyzer@main
         with:
+          fatal-infos: true
