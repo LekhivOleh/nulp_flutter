@@ -73,7 +73,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _showErrorDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Invalid Color'),
