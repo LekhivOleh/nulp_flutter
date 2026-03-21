@@ -11,9 +11,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({required this.title, super.key});
 
   final String title;
 
@@ -30,12 +31,68 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  final TextEditingController _colorController = TextEditingController();
+  Color _squareColor = Colors.black;
+  final List<String> _colorHistory = [];
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
+  void _updateColor(String value) {
+    if (value.isEmpty) return;
+    
+    try {
+      final Color? color = _parseColor(value.trim());
+      if (color != null) {
+        setState(() {
+          _squareColor = color;
+          
+          _colorHistory.insert(0, value.trim());
+          if (_colorHistory.length > 5) {
+            _colorHistory.removeLast();
+          }
+        });
+      } else {
+        _showErrorDialog();
+      }
+    } catch (e) {
+      _showErrorDialog();
+    } finally {
+      _colorController.clear();
+    }
+  }
+
+  Color? _parseColor(String input) {
+    final colorString = input.toUpperCase();
+    
+    final colorMap = {
+      'RED': Colors.red,
+      'BLUE': Colors.blue,
+      'GREEN': Colors.green,
+      'YELLOW': Colors.yellow,
+    };
+    
+    return colorMap[colorString];
+  }
+
+  void _showErrorDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Invalid Color'),
+        content: 
+          const Text('Not a valid color.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _colorController.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,21 +103,60 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _colorController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Enter color (red, blue, green, yellow)',
+                      ),
+                      onSubmitted: _updateColor,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  TextButton(
+                    onPressed: () => _updateColor(_colorController.text),
+                    child: const Text('Change Color')
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: 150,
+                height: 150,
+                color: _squareColor,
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Column(
+                      children: [
+                        const Text('Color History'),
+                        ..._colorHistory.indexed.map((item) {
+                          return GestureDetector(
+                            onTap: () => _updateColor(item.$2),
+                            child: ColoredBox(
+                              color: _parseColor(item.$2) ?? Colors.transparent,
+                              child: Text(item.$2),
+                            ),
+                          );
+                        }
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
