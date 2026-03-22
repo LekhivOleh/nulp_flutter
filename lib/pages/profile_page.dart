@@ -57,7 +57,10 @@ class ProfilePage extends StatelessWidget {
                     SizedBox(height: 12),
                     Text(
                       _userName,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600
+                      ),
                     ),
                     SizedBox(height: 4),
                     Text(_role),
