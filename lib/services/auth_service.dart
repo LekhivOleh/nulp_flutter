@@ -1,5 +1,6 @@
 import 'package:my_project/models/app_user.dart';
 import 'package:my_project/repositories/auth_repository.dart';
+import 'package:uuid/uuid.dart';
 
 class AuthService {
   AuthService(this._authRepository);
@@ -12,6 +13,7 @@ class AuthService {
     required String password,
   }) async {
     final user = AppUser(
+      id: const Uuid().v4(),
       name: name.trim(),
       email: email.trim(),
       password: password,

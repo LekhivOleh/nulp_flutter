@@ -15,7 +15,10 @@ class LogService {
     return _logRepository.saveLogs(logs: logs);
   }
 
-  Future<void> addLog(AccessLog log) async {
+  Future<void> addLog({
+      required AccessLog log,
+      required String userId
+    }) async {
     final logs = await _logRepository.getLogs();
     final updated = <AccessLog>[...logs, log];
     await _logRepository.saveLogs(logs: updated);

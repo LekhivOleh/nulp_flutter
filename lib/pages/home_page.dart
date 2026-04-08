@@ -20,6 +20,7 @@ class _HomePageState extends State<HomePage> {
   List<AccessLog> _logs = <AccessLog>[];
   bool _isLoading = true;
   String _userEmail = '';
+  late final String _currentUserId;
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _userEmail = user?.email ?? 'unknown';
+      _currentUserId = user?.id ?? '';
       _logs = logs;
       _isLoading = false;
     });
