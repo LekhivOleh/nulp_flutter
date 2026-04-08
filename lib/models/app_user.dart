@@ -3,17 +3,25 @@ class AppUser {
     required this.name,
     required this.email,
     required this.password,
+    this.isAdmin = false,
   });
 
   final String name;
   final String email;
   final String password;
+  final bool isAdmin;
 
-  AppUser copyWith({String? name, String? email, String? password}) {
+  AppUser copyWith({
+    String? name,
+    String? email,
+    String? password,
+    bool? isAdmin,
+  }) {
     return AppUser(
       name: name ?? this.name,
       email: email ?? this.email,
       password: password ?? this.password,
+      isAdmin: isAdmin ?? this.isAdmin,
     );
   }
 
@@ -22,6 +30,7 @@ class AppUser {
       'name': name,
       'email': email,
       'password': password,
+      'isAdmin': isAdmin,
     };
   }
 
@@ -30,6 +39,7 @@ class AppUser {
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       password: json['password'] as String? ?? '',
+      isAdmin: json['isAdmin'] as bool? ?? false,
     );
   }
 }

@@ -21,16 +21,6 @@ class LogService {
     await _logRepository.saveLogs(logs: updated);
   }
 
-  Future<void> updateLog({required int index, required AccessLog log}) async {
-    final logs = await _logRepository.getLogs();
-    if (index < 0 || index >= logs.length) {
-      return;
-    }
-
-    final updated = <AccessLog>[...logs]..[index] = log;
-    await _logRepository.saveLogs(logs: updated);
-  }
-
   Future<void> deleteLog({required int index}) async {
     final logs = await _logRepository.getLogs();
     if (index < 0 || index >= logs.length) {
