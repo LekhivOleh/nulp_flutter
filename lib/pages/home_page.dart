@@ -194,8 +194,10 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (nextItem == null) {
-      nameController.dispose();
-      timeController.dispose();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        nameController.dispose();
+        timeController.dispose();
+      });
       return;
     }
 
@@ -208,8 +210,10 @@ class _HomePageState extends State<HomePage> {
 
     await _persistAndRefresh(next);
 
-    nameController.dispose();
-    timeController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nameController.dispose();
+      timeController.dispose();
+    });
   }
 
   Future<void> _deleteLog(int index) async {
