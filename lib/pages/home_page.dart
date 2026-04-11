@@ -20,7 +20,6 @@ class _HomePageState extends State<HomePage> {
   List<AccessLog> _logs = <AccessLog>[];
   bool _isLoading = true;
   String _userEmail = '';
-  late final String _currentUserId;
 
   @override
   void initState() {
@@ -38,7 +37,6 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _userEmail = user?.email ?? 'unknown';
-      _currentUserId = user?.id ?? '';
       _logs = logs;
       _isLoading = false;
     });
@@ -93,6 +91,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
     await _authService.logout();
 
     if (!mounted) {
@@ -126,6 +147,42 @@ class _HomePageState extends State<HomePage> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
+                  StreamBuilder<bool>(
+                    stream: AppDependencies.instance.connectivityService.connectionStatusStream,
+                    initialData: AppDependencies.instance.connectivityService.isConnected,
+                    builder: (context, snapshot) {
+                      final isConnected = snapshot.data ?? true;
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
+                        ),
+                        color: isConnected ? Colors.green : Colors.red,
+                        child: Row(
+                          children: [
+                            Icon(
+                              isConnected
+                                  ? Icons.cloud_done
+                                  : Icons.cloud_off,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isConnected
+                                  ? 'Connected to internet'
+                                  : 'No internet connection',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 12),
                   Text('Logged in as: $_userEmail'),
                   const SizedBox(height: 12),

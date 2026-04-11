@@ -35,48 +35,64 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-    final authService = AppDependencies.instance.authService;
-    final isLoggedIn = await authService.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (isLoggedIn) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Success'),
-          content: const Text('Login successful'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
+    try {
+      final authService = AppDependencies.instance.authService;
+      final isLoggedIn = await authService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
 
       if (!mounted) {
         return;
       }
 
-      Navigator.pushReplacementNamed(context, HomePage.routeName);
-      return;
-    }
+      setState(() {
+        _isLoading = false;
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invalid credentials or user not registered.'),
-      ),
-    );
+      if (isLoggedIn) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Success'),
+            content: const Text('Login successful'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        Navigator.pushReplacementNamed(context, HomePage.routeName);
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid credentials or user not registered.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   @override
@@ -84,10 +100,50 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Login Page')),
       body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        child: Column(
+          children: [
+            StreamBuilder<bool>(
+              stream: AppDependencies.instance.connectivityService.connectionStatusStream,
+              initialData: AppDependencies.instance.connectivityService.isConnected,
+              builder: (context, snapshot) {
+                final isConnected = snapshot.data ?? true;
+                if (!isConnected) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
+                    color: Colors.orange,
+                    child: Row(
+                      children: const [
+                        Icon(
+                          Icons.cloud_off,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No internet connection. Saved sessions may still work.',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
               Form(
                 key: _formKey,
                 child: Padding(
@@ -136,8 +192,11 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                 ),
               ),
-            ],
-          ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
