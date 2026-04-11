@@ -138,7 +138,8 @@ class MqttAccessLogSyncService {
 
     final timestamp =
         DateTime.tryParse(timestampRaw)?.toUtc() ?? DateTime.now().toUtc();
-    final fingerprint = '$uid|$userId|$name|$direction|${timestamp.toIso8601String()}';
+    final fingerprint =
+        '$uid|$userId|$name|$direction|${timestamp.toIso8601String()}';
 
     if (fingerprint == _lastEventFingerprint) {
       return;

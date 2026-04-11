@@ -103,8 +103,12 @@ class _LoginPageState extends State<LoginPage> {
         child: Column(
           children: [
             StreamBuilder<bool>(
-              stream: AppDependencies.instance.connectivityService.connectionStatusStream,
-              initialData: AppDependencies.instance.connectivityService.isConnected,
+              stream:
+                AppDependencies.instance
+                  .connectivityService.connectionStatusStream,
+              initialData:
+                AppDependencies.instance
+                  .connectivityService.isConnected,
               builder: (context, snapshot) {
                 final isConnected = snapshot.data ?? true;
                 if (!isConnected) {
@@ -115,8 +119,8 @@ class _LoginPageState extends State<LoginPage> {
                       horizontal: 16,
                     ),
                     color: Colors.orange,
-                    child: Row(
-                      children: const [
+                    child: const Row(
+                      children: [
                         Icon(
                           Icons.cloud_off,
                           color: Colors.white,
@@ -125,7 +129,8 @@ class _LoginPageState extends State<LoginPage> {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'No internet connection. Saved sessions may still work.',
+                            'No internet connection.\n'
+                            'Saved sessions may still work.',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w500,

@@ -148,8 +148,12 @@ class _HomePageState extends State<HomePage> {
             : Column(
                 children: [
                   StreamBuilder<bool>(
-                    stream: AppDependencies.instance.connectivityService.connectionStatusStream,
-                    initialData: AppDependencies.instance.connectivityService.isConnected,
+                    stream:
+                      AppDependencies.instance
+                        .connectivityService.connectionStatusStream,
+                    initialData:
+                      AppDependencies.instance
+                        .connectivityService.isConnected,
                     builder: (context, snapshot) {
                       final isConnected = snapshot.data ?? true;
                       return Container(
