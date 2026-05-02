@@ -1,5 +1,6 @@
 import 'package:my_project/models/app_user.dart';
 import 'package:my_project/repositories/auth_repository.dart';
+import 'package:uuid/uuid.dart';
 
 class AuthService {
   AuthService(this._authRepository);
@@ -12,6 +13,7 @@ class AuthService {
     required String password,
   }) async {
     final user = AppUser(
+      id: const Uuid().v4(),
       name: name.trim(),
       email: email.trim(),
       password: password,
@@ -31,20 +33,23 @@ class AuthService {
     return _authRepository.getCurrentUser();
   }
 
-  Future<bool> isLoggedIn() {
-    return _authRepository.isLoggedIn();
+  Future<bool> isLoggedIn() async {
+    return await getCurrentUser() != null;
   }
 
   Future<void> updateCurrentUser({
     required String name,
     required String email,
   }) async {
-    final user = await _authRepository.getRegisteredUser();
+    final user = await getCurrentUser();
     if (user == null) {
       return;
     }
 
-    final updated = user.copyWith(name: name.trim(), email: email.trim());
+    final updated = user.copyWith(
+      name: name.trim(),
+      email: email.trim(),
+    );
     await _authRepository.updateCurrentUser(user: updated);
   }
 

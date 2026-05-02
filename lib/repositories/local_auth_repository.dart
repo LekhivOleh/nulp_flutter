@@ -9,69 +9,100 @@ class LocalAuthRepository implements AuthRepository {
 
   final KeyValueStorage _storage;
 
-  static const String _userKey = 'registered_user';
-  static const String _isLoggedInKey = 'is_logged_in';
+  static const String _usersKey = 'registered_users';
+  static const String _currentUserEmailKey = 'current_user_email';
+
+  Future<List<AppUser>> _getAllUsers() async {
+    final raw = await _storage.readString(key: _usersKey);
+    if (raw == null || raw.isEmpty) {
+      return [];
+    }
+
+    final decoded = jsonDecode(raw) as List<dynamic>;
+    return decoded
+        .map((u) => AppUser.fromJson(u as Map<String, dynamic>))
+        .toList();
+  }
 
   @override
   Future<void> register({required AppUser user}) async {
-    final payload = jsonEncode(user.toJson());
-    await _storage.writeString(key: _userKey, value: payload);
+    final users = await _getAllUsers();
+
+    if (users.any((u) => u.email == user.email)) {
+      throw Exception('User with this email already exists');
+    } 
+
+    users.add(user);
+    await _storage.writeString(
+      key: _usersKey,
+      value: jsonEncode(users.map((u) => u.toJson()).toList()),
+    );
   }
 
   @override
   Future<bool> login({required String email, required String password}) async {
-    final user = await getRegisteredUser();
-    if (user == null) {
-      return false;
-    }
-
-    final isMatch = user.email == email && user.password == password;
-    await _storage.writeString(
-      key: _isLoggedInKey,
-      value: isMatch ? 'true' : 'false',
+    final users = await _getAllUsers();
+    final user = users.firstWhere(
+      (u) =>u.email == email && u.password == password,
+      orElse: () => throw Exception('Invalid email or password'),
     );
-    return isMatch;
+
+    await _storage.writeString(key: _currentUserEmailKey, value: user.email);
+    return true;
   }
 
   @override
   Future<void> logout() async {
-    await _storage.writeString(key: _isLoggedInKey, value: 'false');
-  }
-
-  @override
-  Future<AppUser?> getRegisteredUser() async {
-    final raw = await _storage.readString(key: _userKey);
-    if (raw == null || raw.isEmpty) {
-      return null;
-    }
-
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    return AppUser.fromJson(decoded);
+    await _storage.remove(key: _currentUserEmailKey);
   }
 
   @override
   Future<AppUser?> getCurrentUser() async {
-    final loggedIn = await isLoggedIn();
-    if (!loggedIn) {
+    final email = await _storage.readString(key: _currentUserEmailKey);
+
+    if (email == null) {
       return null;
     }
-    return getRegisteredUser();
+
+    final users = await _getAllUsers();
+    return users.firstWhere(
+      (u) => u.email == email,
+      orElse: () => throw Exception('User not found')
+    );
   }
 
   @override
   Future<void> updateCurrentUser({required AppUser user}) async {
-    await register(user: user);
+    final users = await _getAllUsers();
+    final index = users.indexWhere((u) => u.email == user.email);
+    
+    if (index == -1) return; // User not found
+    
+    users[index] = user;
+    await _storage.writeString(
+      key: _usersKey,
+      value: jsonEncode(users.map((u) => u.toJson()).toList()),
+    );
   }
 
   @override
   Future<void> deleteCurrentUser() async {
-    await _storage.remove(key: _userKey);
-    await _storage.writeString(key: _isLoggedInKey, value: 'false');
+    final email = await _storage.readString(key: _currentUserEmailKey);
+    if (email == null) {
+      return;
+    }
+
+    final users = await _getAllUsers();
+    users.removeWhere((u) => u.email == email);
+
+    await _storage.writeString(
+      key: _usersKey,
+      value: jsonEncode(users.map((u) => u.toJson()).toList()),
+    );
+
+    await _storage.remove(key: _currentUserEmailKey);
   }
 
-  @override
-  Future<bool> isLoggedIn() async {
-    final value = await _storage.readString(key: _isLoggedInKey);
-    return value == 'true';
-  }
+  // admin
+  Future<List<AppUser>> getAllUsers() async => _getAllUsers();
 }
