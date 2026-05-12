@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:my_project/app_dependencies.dart';
 import 'package:my_project/pages/home_page.dart';
@@ -25,6 +27,13 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _isLoggedInFuture = AppDependencies.instance.authService.isLoggedIn();
+    unawaited(AppDependencies.instance.wsLogSyncService.start());
+  }
+
+  @override
+  void dispose() {
+    unawaited(AppDependencies.instance.wsLogSyncService.dispose());
+    super.dispose();
   }
 
   @override

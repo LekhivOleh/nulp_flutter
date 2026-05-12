@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_project/app_dependencies.dart';
 import 'package:my_project/pages/login_page.dart';
-import 'package:my_project/services/validators/input_validators.dart';
+import 'package:my_project/widgets/profile_form.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -34,11 +34,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUser() async {
     final user = await _authService.getCurrentUser();
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     setState(() {
       _nameController.text = user?.name ?? '';
       _emailController.text = user?.email ?? '';
@@ -47,27 +43,19 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     await _authService.updateCurrentUser(
       name: _nameController.text,
       email: _emailController.text,
     );
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile updated successfully.')),
     );
   }
 
   Future<void> _deleteAccount() async {
-    final confirmed =
-        await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Delete account'),
@@ -85,17 +73,9 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ) ??
         false;
-
-    if (!confirmed) {
-      return;
-    }
-
+    if (!confirmed) return;
     await _authService.deleteCurrentUser();
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
       context,
       LoginPage.routeName,
@@ -114,57 +94,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: const EdgeInsets.all(16),
                 child: Form(
                   key: _formKey,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            const CircleAvatar(
-                              radius: 34,
-                              child: Icon(Icons.person, size: 34),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Name',
-                              ),
-                              validator: InputValidators.validateName,
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _emailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                              ),
-                              validator: InputValidators.validateEmail,
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _saveProfile,
-                                child: const Text('Save changes'),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: _deleteAccount,
-                                child: const Text('Delete account'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  child: ProfileForm(
+                    nameController: _nameController,
+                    emailController: _emailController,
+                    onSave: _saveProfile,
+                    onDelete: _deleteAccount,
                   ),
                 ),
               ),

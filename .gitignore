@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# .NET build output
+backend/bin/
+backend/obj/
+backend/*.db
+
+# PlatformIO build artifacts and downloaded libraries
+embedded/**/.pio/build/
+embedded/**/.pio/libdeps/
+embedded/**/.vscode/

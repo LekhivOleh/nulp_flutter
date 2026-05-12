@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:my_project/app_dependencies.dart';
 import 'package:my_project/pages/home_page.dart';
 import 'package:my_project/pages/register_page.dart';
-import 'package:my_project/services/validators/input_validators.dart';
+import 'package:my_project/widgets/login_form.dart';
+import 'package:my_project/widgets/offline_banner.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -27,56 +28,51 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    final authService = AppDependencies.instance.authService;
-    final isLoggedIn = await authService.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (isLoggedIn) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Success'),
-          content: const Text('Login successful'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
+    try {
+      final isLoggedIn = await AppDependencies.instance.authService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
 
-      if (!mounted) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (isLoggedIn) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Success'),
+            content: const Text('Login successful'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, HomePage.routeName);
         return;
       }
 
-      Navigator.pushReplacementNamed(context, HomePage.routeName);
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid credentials or user not registered.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invalid credentials or user not registered.'),
-      ),
-    );
   }
 
   @override
@@ -84,60 +80,27 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Login Page')),
       body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Form(
-                key: _formKey,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(labelText: 'Email'),
-                        validator: InputValidators.validateEmail,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                        ),
-                        obscureText: true,
-                        validator: InputValidators.validatePassword,
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _submit,
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Login'),
-                      ),
-                    ],
+        child: Column(
+          children: [
+            OfflineBanner(
+              service: AppDependencies.instance.connectivityService,
+            ),
+            Expanded(
+              child: Center(
+                child: LoginForm(
+                  formKey: _formKey,
+                  emailController: _emailController,
+                  passwordController: _passwordController,
+                  isLoading: _isLoading,
+                  onSubmit: _submit,
+                  onGoToRegister: () => Navigator.pushReplacementNamed(
+                    context,
+                    RegisterPage.routeName,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => Navigator.pushReplacementNamed(
-                  context,
-                  RegisterPage.routeName,
-                ),
-                child: const Text(
-                  'No account yet?\nGo to Register',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
