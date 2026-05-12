@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
-import 'package:my_project/models/access_log.dart';
 import 'package:my_project/services/log_service.dart';
+import 'package:my_project/services/mqtt_payload_parser.dart';
 
 class MqttAccessLogSyncService {
   MqttAccessLogSyncService(
@@ -119,48 +119,16 @@ class MqttAccessLogSyncService {
   }
 
   Future<void> _persistAccessEvent(String payload) async {
-    Map<String, dynamic> decoded;
-    try {
-      decoded = jsonDecode(payload) as Map<String, dynamic>;
-    } catch (_) {
-      return;
-    }
+    final log = parseMqttAccessLog(payload);
+    if (log == null) return;
 
-    final uid = _readString(decoded['uid']);
-    final userId = _readString(decoded['userId']);
-    final name = _readString(decoded['name']);
-    final direction = _readString(decoded['direction']);
-    final timestampRaw = _readString(decoded['timestamp']);
-
-    if (uid.isEmpty || userId.isEmpty || name.isEmpty || direction.isEmpty) {
-      return;
-    }
-
-    final timestamp =
-        DateTime.tryParse(timestampRaw)?.toUtc() ?? DateTime.now().toUtc();
+    final ts = log.timestamp.toIso8601String();
     final fingerprint =
-        '$uid|$userId|$name|$direction|${timestamp.toIso8601String()}';
+        '${log.uid}|${log.userId}|${log.name}|${log.direction}|$ts';
 
-    if (fingerprint == _lastEventFingerprint) {
-      return;
-    }
+    if (fingerprint == _lastEventFingerprint) return;
     _lastEventFingerprint = fingerprint;
 
-    final log = AccessLog(
-      uid: uid,
-      userId: userId,
-      name: name,
-      direction: direction,
-      timestamp: timestamp,
-    );
-
-    await _logService.addLog(log: log, userId: userId);
-  }
-
-  String _readString(dynamic value) {
-    if (value is String) {
-      return value.trim();
-    }
-    return '';
+    await _logService.addLog(log: log, userId: log.userId);
   }
 }

@@ -1,5 +1,4 @@
 #include <ESP8266WiFi.h>
-#include <LittleFS.h>
 #include <MFRC522.h>
 #include <PubSubClient.h>
 #include <SPI.h>
@@ -8,9 +7,10 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
+#include <ArduinoJson.h>
 
-const char* WIFI_SSID = "TP-Link_A623";
-const char* WIFI_PASS = "Oleh04052006";
+const char* WIFI_SSID = "Bibika";
+const char* WIFI_PASS = "14882284";
 
 const char* MQTT_HOST = "broker.hivemq.com";
 const uint16_t MQTT_PORT = 1883;
@@ -18,9 +18,8 @@ const char* MQTT_USER = "";
 const char* MQTT_PASS = "";
 
 const char* MQTT_TOPIC_EVENTS = "nulp/access/events";
+const char* MQTT_TOPIC_CARDS_SYNC = "nulp/cards/sync";
 const char* DEVICE_ID = "wemos-d1-rfid-01";
-const char* CARDS_FILE_PATH = "/cards.csv";
-
 constexpr uint8_t RFID_SS_PIN = D8;
 constexpr uint8_t RFID_RST_PIN = D3;
 
@@ -56,7 +55,6 @@ constexpr size_t MAX_REGISTERED_CARDS = 128;
 CardEntry registeredCards[MAX_REGISTERED_CARDS];
 size_t registeredCardsCount = 0;
 
-bool filesystemReady = false;
 bool displayReady = false;
 bool rfidReady = false;
 String lastUid = "";
@@ -68,9 +66,6 @@ constexpr unsigned long RFID_RETRY_INTERVAL_MS = 5000;
 String uidToString(const MFRC522::Uid& uid) {
   String out;
   for (byte i = 0; i < uid.size; i++) {
-    if (i > 0) {
-      out += ':';
-    }
     if (uid.uidByte[i] < 0x10) {
       out += '0';
     }
@@ -84,6 +79,7 @@ String normalizeUid(String value) {
   value.trim();
   value.toUpperCase();
   value.replace(" ", "");
+  value.replace(":", "");
   return value;
 }
 
@@ -101,77 +97,6 @@ void addRegisteredCard(
   registeredCards[registeredCardsCount].userId = userId;
   registeredCards[registeredCardsCount].isAdmin = isAdmin;
   registeredCardsCount++;
-}
-
-bool parseIsAdminValue(String value) {
-  value.trim();
-  value.toLowerCase();
-  return value == "1" || value == "true" || value == "yes" || value == "y" || value == "admin";
-}
-
-void loadCardsFromLittleFs() {
-  registeredCardsCount = 0;
-
-  if (!filesystemReady) {
-    return;
-  }
-
-  if (!LittleFS.exists(CARDS_FILE_PATH)) {
-    return;
-  }
-
-  File file = LittleFS.open(CARDS_FILE_PATH, "r");
-  if (!file) {
-    return;
-  }
-
-  while (file.available()) {
-    String line = file.readStringUntil('\n');
-    line.trim();
-
-    if (line.length() == 0 || line.startsWith("#")) {
-      continue;
-    }
-
-    const int commaIndex = line.indexOf(',');
-    const int lastIndex = static_cast<int>(line.length()) - 1;
-    if (commaIndex <= 0 || commaIndex >= lastIndex) {
-      continue;
-    }
-
-    const int secondCommaIndex = line.indexOf(',', commaIndex + 1);
-    String uid = line.substring(0, commaIndex);
-    String person;
-    String userId;
-    bool isAdmin = false;
-
-    if (secondCommaIndex > commaIndex) {
-      person = line.substring(commaIndex + 1, secondCommaIndex);
-      const int thirdCommaIndex = line.indexOf(',', secondCommaIndex + 1);
-
-      if (thirdCommaIndex > secondCommaIndex) {
-        userId = line.substring(secondCommaIndex + 1, thirdCommaIndex);
-        String isAdminRaw = line.substring(thirdCommaIndex + 1);
-        isAdmin = parseIsAdminValue(isAdminRaw);
-      } else {
-        userId = line.substring(secondCommaIndex + 1);
-      }
-    } else {
-      continue;
-    }
-
-    uid = normalizeUid(uid);
-    person.trim();
-    userId.trim();
-
-    if (uid.length() == 0 || person.length() == 0 || userId.length() == 0) {
-      continue;
-    }
-
-    addRegisteredCard(uid, person, userId, isAdmin);
-  }
-
-  file.close();
 }
 
 const CardEntry* findCardByUid(const String& uid) {
@@ -221,6 +146,44 @@ String getIsoTimestamp() {
   return String(buf);
 }
 
+void handleCardSync(byte* payload, unsigned int length) {
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, payload, length);
+  if (err) {
+    Serial.print("[MQTT] Card sync parse error: ");
+    Serial.println(err.c_str());
+    return;
+  }
+
+  JsonArray arr = doc.as<JsonArray>();
+  if (arr.isNull()) {
+    return;
+  }
+
+  registeredCardsCount = 0;
+  for (JsonObject card : arr) {
+    const char* uid = card["uid"];
+    const char* person = card["person"];
+    const char* userId = card["userId"];
+    bool isAdmin = card["isAdmin"] | false;
+
+    if (uid && person && userId) {
+      addRegisteredCard(String(uid), String(person), String(userId), isAdmin);
+    }
+  }
+
+  Serial.print("[MQTT] Synced ");
+  Serial.print(registeredCardsCount);
+  Serial.println(" cards from backend");
+  showDisplay("Cards synced", String(registeredCardsCount) + " cards", "");
+}
+
+void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+  if (strcmp(topic, MQTT_TOPIC_CARDS_SYNC) == 0) {
+    handleCardSync(payload, length);
+  }
+}
+
 void showDisplay(const String& line1, const String& line2, const String& line3) {
   if (!displayReady) {
     return;
@@ -257,20 +220,29 @@ void ensureWifiConnected() {
     return;
   }
 
+  WiFi.persistent(false);
+  WiFi.disconnect(true);
+  delay(100);
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
+  Serial.print("[WiFi] Connecting to: ");
+  Serial.println(WIFI_SSID);
   showDisplay("WiFi connecting...", "", WiFi.SSID());
 
   unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000UL) {
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000UL) {
     delay(250);
   }
 
   if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
     showDisplay("WiFi connected", WiFi.localIP().toString(), "");
   } else {
-    showDisplay("WiFi failed", "offline mode", "");
+    Serial.print("[WiFi] failed, status: ");
+    Serial.println(WiFi.status());
+    showDisplay("WiFi failed", "status:" + String(WiFi.status()), "");
   }
 }
 
@@ -291,6 +263,7 @@ void ensureMqttConnected() {
   }
 
   if (ok) {
+    mqttClient.subscribe(MQTT_TOPIC_CARDS_SYNC);
     showDisplay("MQTT connected", String(MQTT_TOPIC_EVENTS), "");
   } else {
     showDisplay("MQTT failed", String(mqttClient.state()), "");
@@ -300,11 +273,13 @@ void ensureMqttConnected() {
 bool initializeDisplay() {
   displayReady = display.begin(OLED_I2C_ADDR, true);
   if (!displayReady) {
+    Serial.println("[DISPLAY] begin() failed — check I2C wiring/address");
     return false;
   }
 
   display.clearDisplay();
   display.display();
+  Serial.println("[DISPLAY] OK");
   return true;
 }
 
@@ -429,15 +404,20 @@ void setup() {
   rfidReady = initializeRfidReader();
 
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-
-  filesystemReady = LittleFS.begin();
-  loadCardsFromLittleFs();
+  mqttClient.setBufferSize(4096);
+  mqttClient.setCallback(onMqttMessage);
 
   showDisplay("Booting...", String(DEVICE_ID), "");
 
   ensureWifiConnected();
   configTime(0, 0, "pool.ntp.org", "time.google.com");
   ensureMqttConnected();
+
+  unsigned long syncWait = millis();
+  while (registeredCardsCount == 0 && millis() - syncWait < 3000UL) {
+    mqttClient.loop();
+    delay(50);
+  }
 
   showDisplay("Ready", "Scan card...", "");
 }

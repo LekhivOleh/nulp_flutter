@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:my_project/app_dependencies.dart';
-import 'package:my_project/models/access_log.dart';
 import 'package:my_project/pages/login_page.dart';
 import 'package:my_project/pages/profile_page.dart';
-import 'package:my_project/widgets/log_card.dart';
+import 'package:my_project/widgets/connectivity_banner.dart';
+import 'package:my_project/widgets/home_log_list.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,55 +15,25 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _logService = AppDependencies.instance.logService;
+  final _wsService = AppDependencies.instance.wsLogSyncService;
   final _authService = AppDependencies.instance.authService;
-  List<AccessLog> _logs = <AccessLog>[];
-  bool _isLoading = true;
+  final _deletedUids = <String>{};
   String _userEmail = '';
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadUser();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadUser() async {
     final user = await _authService.getCurrentUser();
-    final logs = await _logService.getLogs();
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _userEmail = user?.email ?? 'unknown';
-      _logs = logs;
-      _isLoading = false;
-    });
+    if (!mounted) return;
+    setState(() => _userEmail = user?.email ?? 'unknown');
   }
 
-  String _formatDate(DateTime value) {
-    final y = value.year.toString().padLeft(4, '0');
-    final m = value.month.toString().padLeft(2, '0');
-    final d = value.day.toString().padLeft(2, '0');
-    final h = value.hour.toString().padLeft(2, '0');
-    final min = value.minute.toString().padLeft(2, '0');
-    return '$y-$m-$d $h:$min';
-  }
-
-  Future<void> _persistAndRefresh(List<AccessLog> next) async {
-    await _logService.saveLogs(next);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _logs = next;
-    });
-  }
-
-  Future<void> _deleteLog(int index) async {
-    final confirmed =
-        await showDialog<bool>(
+  Future<void> _deleteLog(String uid) async {
+    final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Delete log'),
@@ -82,12 +52,8 @@ class _HomePageState extends State<HomePage> {
         ) ??
         false;
 
-    if (!confirmed) {
-      return;
-    }
-
-    final next = <AccessLog>[..._logs]..removeAt(index);
-    await _persistAndRefresh(next);
+    if (!confirmed || !mounted) return;
+    setState(() => _deletedUids.add(uid));
   }
 
   Future<void> _logout() async {
@@ -110,16 +76,9 @@ class _HomePageState extends State<HomePage> {
         ) ??
         false;
 
-    if (!confirmed) {
-      return;
-    }
-
+    if (!confirmed) return;
     await _authService.logout();
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
       context,
       LoginPage.routeName,
@@ -141,108 +100,25 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  StreamBuilder<bool>(
-                    stream:
-                      AppDependencies.instance
-                        .connectivityService.connectionStatusStream,
-                    initialData:
-                      AppDependencies.instance
-                        .connectivityService.isConnected,
-                    builder: (context, snapshot) {
-                      final isConnected = snapshot.data ?? true;
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 16,
-                        ),
-                        color: isConnected ? Colors.green : Colors.red,
-                        child: Row(
-                          children: [
-                            Icon(
-                              isConnected
-                                  ? Icons.cloud_done
-                                  : Icons.cloud_off,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              isConnected
-                                  ? 'Connected to internet'
-                                  : 'No internet connection',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Text('Logged in as: $_userEmail'),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Center(
-                      child: FractionallySizedBox(
-                        widthFactor: 0.94,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            color: Colors.white,
-                          ),
-                          child: _logs.isEmpty
-                              ? const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(24),
-                                    child: Text('No access logs yet.'),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.all(12),
-                                  itemCount: _logs.length,
-                                  itemBuilder: (context, index) {
-                                    return Dismissible(
-                                      key: ValueKey(_logs[index].uid),
-                                      direction: DismissDirection.endToStart,
-                                      background: const ColoredBox(
-                                        color: Colors.redAccent,
-                                        child: Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                            ),
-                                            child: Icon(
-                                              Icons.delete,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      confirmDismiss: (_) async {
-                                        await _deleteLog(index);
-                                        return false;
-                                      },
-                                      child: LogCard(log: _logs[index]),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+        child: Column(
+          children: [
+            ConnectivityBanner(
+              service: AppDependencies.instance.connectivityService,
+            ),
+            const SizedBox(height: 12),
+            Text('Logged in as: $_userEmail'),
+            const SizedBox(height: 12),
+            Expanded(
+              child: HomeLogList(
+                service: _wsService,
+                deletedUids: _deletedUids,
+                onDelete: _deleteLog,
               ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }

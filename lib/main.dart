@@ -27,12 +27,12 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _isLoggedInFuture = AppDependencies.instance.authService.isLoggedIn();
-    unawaited(AppDependencies.instance.mqttAccessLogSyncService.start());
+    unawaited(AppDependencies.instance.wsLogSyncService.start());
   }
 
   @override
   void dispose() {
-    unawaited(AppDependencies.instance.mqttAccessLogSyncService.dispose());
+    unawaited(AppDependencies.instance.wsLogSyncService.dispose());
     super.dispose();
   }
 
