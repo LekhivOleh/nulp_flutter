@@ -40,6 +40,9 @@ dependencies:
   uuid: ^4.5.3
   connectivity_plus: ^5.0.2
   flutter_bloc: ^9.1.1
+  torch_controller:
+    git:
+      url: https://github.com/LekhivOleh/BuryTheLightDeepWithin.git
 
 dev_dependencies:
   flutter_test:

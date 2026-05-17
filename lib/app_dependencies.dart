@@ -39,5 +39,6 @@ class AppDependencies {
     logService = LogService(_logRepository);
     wsLogSyncService = WsLogSyncService();
     connectivityService = ConnectivityService();
+    await connectivityService.checkConnectivity();
   }
 }

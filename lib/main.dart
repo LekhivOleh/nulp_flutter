@@ -9,6 +9,7 @@ import 'package:my_project/pages/home_page.dart';
 import 'package:my_project/pages/login_page.dart';
 import 'package:my_project/pages/profile_page.dart';
 import 'package:my_project/pages/register_page.dart';
+import 'package:my_project/pages/torch_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,6 +76,7 @@ class _MyAppState extends State<MyApp> {
           LoginPage.routeName: (context) => const LoginPage(),
           ProfilePage.routeName: (context) => const ProfilePage(),
           RegisterPage.routeName: (context) => const RegisterPage(),
+          TorchPage.routeName: (context) => const TorchPage(),
         },
       ),
     );

@@ -4,20 +4,21 @@ class ConnectivityService {
   final _connectivity = Connectivity();
   bool _isConnected = true;
 
-  bool get isConnected => _isConnected;
+  late final Stream<bool> connectionStatusStream = _connectivity
+      .onConnectivityChanged
+      .map((result) {
+        final ok = result != ConnectivityResult.none;
+        _isConnected = ok;
+        return ok;
+      })
+      .distinct();
 
-  Stream<bool> get connectionStatusStream {
-    return _connectivity.onConnectivityChanged.map((result) {
-      final isConnected = result != ConnectivityResult.none;
-      _isConnected = isConnected;
-      return isConnected;
-    });
-  }
+  bool get isConnected => _isConnected;
 
   Future<bool> checkConnectivity() async {
     final result = await _connectivity.checkConnectivity();
-    final isConnected = result != ConnectivityResult.none;
-    _isConnected = isConnected;
-    return isConnected;
+    final ok = result != ConnectivityResult.none;
+    _isConnected = ok;
+    return ok;
   }
 }
