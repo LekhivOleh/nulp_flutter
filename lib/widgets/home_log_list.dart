@@ -1,19 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_project/cubits/log_cubit.dart';
 import 'package:my_project/models/access_log.dart';
-import 'package:my_project/services/ws_log_sync_service.dart';
 import 'package:my_project/widgets/log_card.dart';
 
 class HomeLogList extends StatelessWidget {
-  const HomeLogList({
-    required this.service,
-    required this.deletedUids,
-    required this.onDelete,
-    super.key,
-  });
+  const HomeLogList({super.key});
 
-  final WsLogSyncService service;
-  final Set<String> deletedUids;
-  final Future<void> Function(String) onDelete;
+  Future<bool> _confirmDelete(
+    BuildContext context,
+    String uid,
+  ) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete log'),
+            content: const Text(
+              'Are you sure you want to delete this item?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Yes'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (confirmed && context.mounted) {
+      context.read<LogCubit>().deleteLog(uid);
+    }
+    return confirmed;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +47,10 @@ class HomeLogList extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             color: Colors.white,
           ),
-          child: StreamBuilder<List<AccessLog>>(
-            stream: service.logsStream,
-            initialData: service.currentLogs,
-            builder: (context, snapshot) {
-              final logs = (snapshot.data ?? [])
-                  .where((l) => !deletedUids.contains(l.uid))
-                  .toList();
-
+          child: BlocBuilder<LogCubit, LogState>(
+            builder: (context, state) {
+              final logs =
+                  state is LogLoaded ? state.logs : <AccessLog>[];
               if (logs.isEmpty) {
                 return const Center(
                   child: Padding(
@@ -41,7 +59,6 @@ class HomeLogList extends StatelessWidget {
                   ),
                 );
               }
-
               return ListView.builder(
                 padding: const EdgeInsets.all(12),
                 itemCount: logs.length,
@@ -55,15 +72,18 @@ class HomeLogList extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Icon(Icons.delete, color: Colors.white),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          child: Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
-                    confirmDismiss: (_) async {
-                      await onDelete(log.uid);
-                      return false;
-                    },
+                    confirmDismiss: (_) =>
+                        _confirmDelete(context, log.uid),
                     child: LogCard(log: log),
                   );
                 },

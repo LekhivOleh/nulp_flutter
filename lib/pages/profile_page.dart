@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:my_project/app_dependencies.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:my_project/cubits/auth_cubit.dart';
 import 'package:my_project/pages/login_page.dart';
 import 'package:my_project/widgets/profile_form.dart';
 
@@ -13,16 +14,18 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final _authService = AppDependencies.instance.authService;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    final authState = context.read<AuthCubit>().state;
+    if (authState is AuthAuthenticated) {
+      _nameController.text = authState.user.name;
+      _emailController.text = authState.user.email;
+    }
   }
 
   @override
@@ -32,34 +35,22 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  Future<void> _loadUser() async {
-    final user = await _authService.getCurrentUser();
-    if (!mounted) return;
-    setState(() {
-      _nameController.text = user?.name ?? '';
-      _emailController.text = user?.email ?? '';
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _saveProfile() async {
+  void _saveProfile() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    await _authService.updateCurrentUser(
+    context.read<AuthCubit>().updateUser(
       name: _nameController.text,
       email: _emailController.text,
     );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully.')),
-    );
   }
 
-  Future<void> _deleteAccount() async {
+  Future<void> _deleteAccount(BuildContext context) async {
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Delete account'),
-            content: const Text('This action cannot be undone. Continue?'),
+            content: const Text(
+              'This action cannot be undone. Continue?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -73,36 +64,54 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ) ??
         false;
-    if (!confirmed) return;
-    await _authService.deleteCurrentUser();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      LoginPage.routeName,
-      (_) => false,
-    );
+    if (confirmed && context.mounted) {
+      context.read<AuthCubit>().deleteUser();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: ProfileForm(
-                    nameController: _nameController,
-                    emailController: _emailController,
-                    onSave: _saveProfile,
-                    onDelete: _deleteAccount,
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated &&
+            state.successMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.successMessage!)),
+          );
+        } else if (state is AuthUnauthenticated) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            LoginPage.routeName,
+            (_) => false,
+          );
+        } else if (state is AuthError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return Scaffold(
+          appBar: AppBar(title: const Text('Profile')),
+          body: SafeArea(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
+                      key: _formKey,
+                      child: ProfileForm(
+                        nameController: _nameController,
+                        emailController: _emailController,
+                        onSave: _saveProfile,
+                        onDelete: () => _deleteAccount(context),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
