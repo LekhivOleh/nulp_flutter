@@ -16,7 +16,11 @@ class LogCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${log.name} | ${log.direction} | ${log.timestamp.toLocal()}'),
+        Text(
+          '${log.name.isNotEmpty ? log.name : 'Unknown'}'
+          ' | ${log.direction}'
+          ' | ${log.timestamp.toLocal()}',
+        ),
         const SizedBox(height: 5),
         const Divider(height: 1, thickness: 1),
       ],
